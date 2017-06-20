@@ -2,11 +2,13 @@
 
 BetterHttpClient will help you making http and https requests with full cookie support.
 
-It supports three types of proxy servers:
+It supports four types of proxy servers:
   - HTTP
   - HTTPS
+  - Socks4
   - Socks5
 
+It supports .Net Framework 4.0
 # Http Client
 - Http GET request
 ```cs
