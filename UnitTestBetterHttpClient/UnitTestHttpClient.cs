@@ -33,8 +33,6 @@ namespace UnitTestBetterHttpClient
                 ContentType = "application/x-www-form-urlencoded; charset=UTF-8"
                 
             };
-            //client.Headers.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-
             string page = client.Post("http://www.newrank.cn/xdnphb/detail/getAccountArticle", new NameValueCollection
             {
                 { "flag","true"},
@@ -107,7 +105,7 @@ namespace UnitTestBetterHttpClient
             Assert.IsTrue(page.Contains(client.UserAgent));
         }
         [TestMethod]
-        public void TestSocksHttpProxy()
+        public void TestSocks5Proxy()
         {
             Proxy proxy = new Proxy("124.207.126.15", 1080, ProxyTypeEnum.Socks);
             HttpClient client = new HttpClient(proxy)
@@ -121,7 +119,7 @@ namespace UnitTestBetterHttpClient
             Assert.IsTrue(page.Contains("darkwarez.pl - Gry, Muzyka, Filmy, Download"));
         }
         [TestMethod]
-        public void TestSocks4HttpProxy()
+        public void TestSocks4Proxy()
         {
             Proxy proxy = new Proxy("115.29.161.103", 1080, ProxyTypeEnum.Socks4);
             
@@ -134,6 +132,19 @@ namespace UnitTestBetterHttpClient
 
             string page = client.Get("http://proxy.mimvp.com/free.php?proxy=in_socks");
             Assert.IsTrue(page.Contains("\"origin\": \"115.29.161.103\""));
+        }
+        [TestMethod]
+        public void TestSocks5ProxyGetIPFromProxyServer()
+        {
+            Proxy proxy = new Proxy("92.222.196.248", 1080, ProxyTypeEnum.Socks);
+            HttpClient client = new HttpClient(proxy, Encoding.UTF8, true)
+            {
+                UserAgent = "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:41.0) Gecko/20100101 Firefox/41.0",
+                Encoding = Encoding.GetEncoding("utf-8"),
+                //AcceptEncoding = "deflate"
+            };
+            string page = client.Get("https://www.youtube.com");
+            Assert.IsTrue(page.Contains("<title>YouTube</title>"));
         }
         [TestMethod]
         public void TestSocksHttpsProxyDeflateEncoding()

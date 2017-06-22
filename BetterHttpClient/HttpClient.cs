@@ -101,7 +101,7 @@ namespace BetterHttpClient
         public bool AllowAutoRedirect { get; set; } = true;
 
         /// <summary>
-        /// 内容类型
+        /// Set content_type of request
         /// </summary>
         public string ContentType { get; set; }
 
@@ -109,6 +109,10 @@ namespace BetterHttpClient
         /// Headers collection that will be added to each request
         /// </summary>
         public NameValueCollection CustomHeaders { get; set; }
+        /// <summary>
+        /// It shows that it gets IP of target host from local dns or proxy server dns
+        /// </summary>
+        public bool IsGetIPFromProxyServer { get; set; }
         public HttpClient(Proxy proxy) : this(proxy, Encoding.UTF8) { }
 
         public HttpClient() : this(new Proxy(), Encoding.UTF8) { }
@@ -118,6 +122,15 @@ namespace BetterHttpClient
             Encoding = encoding;
             Proxy = proxy;
         }
+        public HttpClient(Proxy proxy, Encoding encoding, bool isGetIPFromProxyServer)
+        {
+            Proxy = proxy;
+            Encoding = encoding;
+            if (Proxy.ProxyType == ProxyTypeEnum.Socks)
+            {
+                IsGetIPFromProxyServer = IsGetIPFromProxyServer;
+            }
+        }
 
         protected override WebRequest GetWebRequest(Uri address)
         {
@@ -126,14 +139,14 @@ namespace BetterHttpClient
             if (Proxy.ProxyType != ProxyTypeEnum.Socks && Proxy.ProxyType != ProxyTypeEnum.Socks4)
             {
                 request = base.GetWebRequest(address);
-                request.ContentType= string.IsNullOrEmpty(ContentType) ? base.GetWebRequest(address).ContentType : ContentType;
+                request.ContentType = string.IsNullOrEmpty(ContentType) ? base.GetWebRequest(address).ContentType : ContentType;
             }
             else if (Proxy.ProxyType == ProxyTypeEnum.Socks)
             {
-                request = SocksHttpWebRequest.Create(address);
+                request = SocksHttpWebRequest.Create(address, IsGetIPFromProxyServer);
                 request.Method = base.GetWebRequest(address).Method;
                 request.ContentLength = base.GetWebRequest(address).ContentLength;
-                request.ContentType = string.IsNullOrEmpty(ContentType)?base.GetWebRequest(address).ContentType:ContentType;
+                request.ContentType = string.IsNullOrEmpty(ContentType) ? base.GetWebRequest(address).ContentType : ContentType;
             }
             else if (Proxy.ProxyType == ProxyTypeEnum.Socks4)
             {
@@ -182,7 +195,7 @@ namespace BetterHttpClient
                 socks4Request.AllowAutoRedirect = AllowAutoRedirect;
             }
 
-            request.Timeout = (int) Timeout.TotalMilliseconds;
+            request.Timeout = (int)Timeout.TotalMilliseconds;
             request.Proxy = Proxy.ProxyItem;
 
             return request;

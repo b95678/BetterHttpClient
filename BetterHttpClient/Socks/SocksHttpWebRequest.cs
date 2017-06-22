@@ -20,10 +20,12 @@ namespace BetterHttpClient.Socks
         private byte[] _requestContentBuffer;
         private NeverEndingStream _requestContentStream;
         private SocksHttpWebResponse _response;
+        private bool _isGetIPFromProxyServer;
 
-        private SocksHttpWebRequest(Uri requestUri)
+        private SocksHttpWebRequest(Uri requestUri, bool isGetIPFromProxyServer)
         {
             RequestUri = requestUri;
+            _isGetIPFromProxyServer = isGetIPFromProxyServer;
         }
 
         public override int Timeout { get; set; }
@@ -183,7 +185,8 @@ namespace BetterHttpClient.Socks
                 throw new InvalidOperationException("Method has not been set.");
             }
             //.net 4.0
-            var task = Task.Factory.StartNew(() => {
+            var task = Task.Factory.StartNew(() =>
+            {
                 if (RequestSubmitted)
                 {
                     return _response;
@@ -226,14 +229,21 @@ namespace BetterHttpClient.Socks
 
         public new static WebRequest Create(string requestUri)
         {
-            return new SocksHttpWebRequest(new Uri(requestUri));
+            return new SocksHttpWebRequest(new Uri(requestUri), false);
         }
 
         public new static WebRequest Create(Uri requestUri)
         {
-            return new SocksHttpWebRequest(requestUri);
+            return new SocksHttpWebRequest(requestUri, false);
         }
-
+        public static WebRequest Create(string requestUri, bool isGetIPFromProxyServer)
+        {
+            return new SocksHttpWebRequest(new Uri(requestUri), isGetIPFromProxyServer);
+        }
+        public static WebRequest Create(Uri requestUri, bool isGetIPFromProxyServer)
+        {
+            return new SocksHttpWebRequest(requestUri, isGetIPFromProxyServer);
+        }
         private void SetSpecialHeaders(string headerName, string value)
         {
             _HttpRequestHeaders.Remove(headerName);
@@ -363,12 +373,26 @@ namespace BetterHttpClient.Socks
                     buf[index++] = 0x05; // version 5 .
                     buf[index++] = 0x01; // command = connect.
                     buf[index++] = 0x00; // Reserve = must be 0x00
-
-                    buf[index++] = 0x01; // Address is full-qualified domain name.
-                    var rawBytes = destIP.GetAddressBytes();
-                    rawBytes.CopyTo(buf, index);
-                    index += (ushort)rawBytes.Length;
-
+                    if (!_isGetIPFromProxyServer)
+                    {
+                        buf[index++] = 0x01; //  Ipv4 address.
+                        var rawBytes = destIP.GetAddressBytes();
+                        rawBytes.CopyTo(buf, index);
+                        index += (ushort)rawBytes.Length;
+                    }
+                    else
+                    {
+                        buf[index++] = 0x03;// Convert to ip from proxy server 
+                                            // Maybe Cannot Convert.
+                        byte[] addBytes = Encoding.ASCII.GetBytes(requestUri.DnsSafeHost);
+                        if (addBytes.Length > 255)
+                        { throw new IOException("Invalid Host"); }
+                        byte[] addBytesLength = BitConverter.GetBytes(addBytes.Length);
+                        addBytesLength.CopyTo(buf, index);
+                        index += addBytesLength.Length;
+                        addBytes.CopyTo(buf, index);
+                        index += addBytes.Length;
+                    }
                     var portBytes = BitConverter.GetBytes(Uri.UriSchemeHttps == requestUri.Scheme ? 443 : 80);
                     for (var i = portBytes.Length - 3; i >= 0; i--)
                         buf[index++] = portBytes[i];
