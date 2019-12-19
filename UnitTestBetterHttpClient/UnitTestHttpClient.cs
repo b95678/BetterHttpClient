@@ -107,7 +107,7 @@ namespace UnitTestBetterHttpClient
         [TestMethod]
         public void TestSocks5Proxy()
         {
-            Proxy proxy = new Proxy("124.207.126.15", 1080, ProxyTypeEnum.Socks);
+            Proxy proxy = new Proxy("47.94.19.105", 3001, ProxyTypeEnum.Socks);
             HttpClient client = new HttpClient(proxy)
             {
                 UserAgent = "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:41.0) Gecko/20100101 Firefox/41.0",
@@ -121,7 +121,8 @@ namespace UnitTestBetterHttpClient
         [TestMethod]
         public void TestSocks4Proxy()
         {
-            Proxy proxy = new Proxy("115.29.161.103", 1080, ProxyTypeEnum.Socks4);
+            string ip = "61.142.72.150";
+            Proxy proxy = new Proxy(ip, 33235, ProxyTypeEnum.Socks4);
             
             HttpClient client = new HttpClient(proxy)
             {
@@ -130,8 +131,8 @@ namespace UnitTestBetterHttpClient
                 //AcceptEncoding = "deflate"
             };
 
-            string page = client.Get("http://proxy.mimvp.com/free.php?proxy=in_socks");
-            Assert.IsTrue(page.Contains("\"origin\": \"115.29.161.103\""));
+            string page = client.Get("http://httpbin.org/get");
+            Assert.IsTrue(page.Contains(ip));
         }
         [TestMethod]
         public void TestSocks5ProxyGetIPFromProxyServer()

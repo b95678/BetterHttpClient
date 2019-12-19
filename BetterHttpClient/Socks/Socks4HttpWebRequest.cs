@@ -325,7 +325,7 @@ namespace BetterHttpClient.Socks
 
                 var proxyUri = Proxy.GetProxy(requestUri);
                 var ipAddress = GetProxyIpAddress(proxyUri);
-                var response = new List<byte>();
+                var response2 = new List<byte>();
 
                 using (var client = new TcpClient(ipAddress.ToString(), proxyUri.Port))
                 {
@@ -336,40 +336,54 @@ namespace BetterHttpClient.Socks
                     client.SendTimeout = timeout;
                     var networkStream = client.GetStream();
                     // auth
-                    var buf = new byte[300];
-                    int index = 0;
-                    buf[index++] = 0x04; // Version
-                    buf[index++] = 0x01; // NMETHODS
+                    // +----+----+----+----+----+----+----+----+----+----+....+----+
+                    // | VN | CD | DSTPORT |      DSTIP        | USERID       |NULL|
+                    // +----+----+----+----+----+----+----+----+----+----+....+----+
+                    //    1    1      2              4           variable       1
+                    var request = new byte[9];
+                    byte[] userId = new byte[0];
+
+                    request[0] = 0x04; // Version
+                    request[1] = 0x01; // NMETHODS
                     var destIP = Dns.GetHostEntry(requestUri.DnsSafeHost).AddressList[0];
-                    var rawBytes = destIP.GetAddressBytes();
-                    var portBytes = BitConverter.GetBytes(Uri.UriSchemeHttps == requestUri.Scheme ? 443 : 80);
-                    for (var i = portBytes.Length - 3; i >= 0; i--)
-                        buf[index++] = portBytes[i];
+                    var ipBytes = destIP.GetAddressBytes();
+                    var port = Uri.UriSchemeHttps == requestUri.Scheme ? 443 : 80;
+                    request[2] = (byte)(port / 256);
+                    request[3] = (byte)(port % 256);
+                    ipBytes.CopyTo(request, 4);
+                    request[8 + userId.Length] = 0x00;
 
-                    rawBytes.CopyTo(buf, index);
-                    index += (ushort)rawBytes.Length;
-                    networkStream.Write(buf, 0, index);
+                    //index += (ushort)ipBytes.Length;
+                    networkStream.Write(request, 0, request.Length);
 
-                    networkStream.Read(buf, 0, 2);
-                    if (buf[0] != 0)
+                    // response
+                    // +----+----+----+----+----+----+----+----+
+                    // | VN | CD | DSTPORT |      DSTIP        |
+                    // +----+----+----+----+----+----+----+----+
+                    //   1    1       2          
+
+                    byte[] response = new byte[8];
+
+                    networkStream.Read(response, 0, response.Length);
+                    if (response[0] != 0)
                     {
                         throw new IOException("Invalid Socks Version");
                     }
-                    if (buf[1] == 91|| buf[1] == 92|| buf[1] == 93)
-                    {
-                        throw new IOException("Socks Server does not support no-auth");
-                    }
-                    if (buf[1] != 90)
+                    //if (response[1] == 91|| response[1] == 92|| response[1] == 93)
+                    //{
+                    //    throw new IOException("Socks Server does not support no-auth");
+                    //}
+                    if (response[1] != 0x5a)
                     {
                         throw new Exception("Socks Server did choose bogus auth");
                     }
-                    networkStream.Read(buf, 0, 2);
-                    var rport = (ushort)IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(buf, 0));
+                    //networkStream.Read(request, 0, 2);
+                    //var rport = (ushort)IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(request, 0));
 
-                    var rdest = string.Empty;
-                    networkStream.Read(buf, 0, 4);
-                    var v4 = BitConverter.ToUInt32(buf, 0);
-                    rdest = new IPAddress(v4).ToString();
+                    //var rdest = string.Empty;
+                    //networkStream.Read(request, 0, 4);
+                    //var v4 = BitConverter.ToUInt32(request, 0);
+                    //rdest = new IPAddress(v4).ToString();
                     
 
                     Stream readStream = null;
@@ -386,8 +400,8 @@ namespace BetterHttpClient.Socks
 
                     string requestString = BuildHttpRequestMessage(requestUri);
 
-                    var request = Encoding.ASCII.GetBytes(requestString);
-                    readStream.Write(request, 0, request.Length);
+                    var request1 = Encoding.ASCII.GetBytes(requestString);
+                    readStream.Write(request1, 0, request1.Length);
                     readStream.Flush();
 
                     var buffer = new byte[client.ReceiveBufferSize];
@@ -396,13 +410,13 @@ namespace BetterHttpClient.Socks
                     do
                     {
                         readlen = readStream.Read(buffer, 0, buffer.Length);
-                        response.AddRange(buffer.Take(readlen));
+                        response2.AddRange(buffer.Take(readlen));
                     } while (readlen != 0);
 
                     readStream.Close();
                 }
 
-                var webResponse = new SocksHttpWebResponse(requestUri, response.ToArray());
+                var webResponse = new SocksHttpWebResponse(requestUri, response2.ToArray());
 
                 if (webResponse.StatusCode == HttpStatusCode.Moved || webResponse.StatusCode == HttpStatusCode.MovedPermanently)
                 {
